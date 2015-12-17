@@ -144,6 +144,7 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, '\r'
 char data;
 String s;
 int offset = 0;
+int counterT = 0;
 
 double accX = 0, accY = 0, accZ = 0, speedX = 0, speedY = 0, speedZ = 0, disX = 0, disY = 0, disZ = 0;
 double timeInterval = 0.01; // in s
@@ -203,11 +204,20 @@ void setup() {
   Serial.println(F("Initializing DMP..."));
   devStatus = mpu.dmpInitialize();
 
+  //Calculated offsets:
+  // x accel: -769
+  // y accel: 2559
+  // z accel: 1038
+  // x gyro: 255
+  // y gyro: -1
+  // z gyro: -1
+
   // supply your own gyro offsets here, scaled for min sensitivity
   mpu.setXGyroOffset(220);
   mpu.setYGyroOffset(76);
   mpu.setZGyroOffset(-85);
   mpu.setZAccelOffset(1200); // 1688 factory default for my test chip
+
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -271,8 +281,14 @@ void calTime() {
   CurrentTime = millis();
   ElapsedTime = CurrentTime - StartTime;
   StartTime = millis();
-  Serial.print("ElapsedTime:");
-  Serial.println(ElapsedTime);
+  //Serial.println(counterT);
+  counterT++;
+  if (counterT > 3000) {
+    resetDis();
+    counterT = 0;
+  }
+  //Serial.print("ElapsedTime:");
+  //Serial.println(ElapsedTime);
 }
 void commandLine() {
   if (Serial.available() > 0) {
@@ -288,7 +304,7 @@ void commandLine() {
 }
 void loop() {
   //setOffset();
-  //delay(10);//cause FIFO overflow
+  delay(4);//cause FIFO overflow
   calTime();
   commandLine();
   // if programming failed, don't try to do anything
@@ -336,7 +352,7 @@ void loop() {
 #ifdef OUTPUT_READABLE_QUATERNION
     // display quaternion values in easy matrix form: w x y z
     mpu.dmpGetQuaternion(&q, fifoBuffer);
-    Serial.print("quat\t");
+    //Serial.print("quat\t");
     Serial.print(q.w);
     Serial.print("\t");
     Serial.print(q.x);
@@ -350,12 +366,13 @@ void loop() {
     // display Euler angles in degrees
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetEuler(euler, &q);
-    Serial.print("euler\t");
+    //Serial.print("euler\t");
     Serial.print(euler[0] * 180 / M_PI);
-    Serial.print("\t");
+    Serial.print(",");
     Serial.print(euler[1] * 180 / M_PI);
-    Serial.print("\t");
-    Serial.println(euler[2] * 180 / M_PI);
+    Serial.print(",");
+    Serial.print(euler[2] * 180 / M_PI);
+    Serial.print(",");
 #endif
 
 #ifdef OUTPUT_READABLE_YAWPITCHROLL
@@ -365,10 +382,17 @@ void loop() {
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
     Serial.print("ypr\t");
     Serial.print(ypr[0] * 180 / M_PI);
-    Serial.print("\t");
+    Serial.print(",");
     Serial.print(ypr[1] * 180 / M_PI);
-    Serial.print("\t");
-    Serial.println(ypr[2] * 180 / M_PI);
+    Serial.print(",");
+    Serial.print(ypr[2] * 180 / M_PI);
+    Serial.println(",");
+    //    Serial.print(0);
+    //    Serial.print(",");
+    //    Serial.print(0);
+    //    Serial.print(",");
+    //    Serial.print(0);
+    //    Serial.println(",");
 #endif
 
 #ifdef OUTPUT_READABLE_REALACCEL
@@ -377,13 +401,14 @@ void loop() {
     mpu.dmpGetAccel(&aa, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-    Serial.print("areal\t");
-    Serial.print(aaReal.x);
-    Serial.print("\t");
-    Serial.print(aaReal.y);
-    Serial.print("\t");
-    Serial.println(aaReal.z);
-    //getDist(aaReal.x,aaReal.y,aaReal.z);
+    //Serial.print("areal\t");
+    //    Serial.print(aaReal.x);
+    //    Serial.print(",");
+    //    Serial.print(aaReal.y);
+    //    Serial.print(",");
+    //    Serial.print(aaReal.z);
+    //    Serial.println(",");
+    getDist(aaReal.x, aaReal.y, aaReal.z);
 #endif
 
 #ifdef OUTPUT_READABLE_WORLDACCEL
@@ -395,11 +420,14 @@ void loop() {
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
     mpu.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
     Serial.print("aworld\t");
-    Serial.print(aaWorld.x);
-    Serial.print("\t");
-    Serial.print(aaWorld.y);
-    Serial.print("\t");
-    Serial.println(aaWorld.z);
+        Serial.print(aaWorld.x);
+        //Serial.print("\t");
+        Serial.print(",");
+        Serial.print(aaWorld.y);
+        //Serial.print("\t");
+        Serial.print(",");
+        Serial.print(aaWorld.z);
+        Serial.println(",");
     getDist(aaWorld.x, aaWorld.y, aaWorld.z);
 #endif
 
@@ -423,81 +451,129 @@ void loop() {
   }
 }
 void getDist(int aX, int aY, int aZ) {
-  int sensitivity = 20;
-  if (aX < sensitivity && aX > -1 * sensitivity)
-    aX = 0;
-  if (aY < sensitivity && aY > -1 * sensitivity)
-    aY = 0;
-  aZ += 80;
-  if (aZ < sensitivity && aZ > -1 * sensitivity)
-    aZ = 0;
   timeInterval = ElapsedTime * 1.0 / 1000;
-  if (abs(aX - accX * 1000) > 3000 || abs(aY - accY * 1000) > 3000 || abs(aZ - accZ * 1000) > 3000 )
-    return;
-  accX = aX * 1.0 / 1000 ;
-  accY = aY * 1.0 / 1000 ;
-  accZ = aZ * 1.0 / 1000 ;
-  Serial.print("timeInterval:\t");
-  Serial.println(timeInterval);
-  Serial.print("aX aY aZ:\t");
-  Serial.print(accX);
-  Serial.print("\t");
-  Serial.print(accY);
-  Serial.print("\t");
-  Serial.println(accZ);
-  Serial.print("sppedX speedY speedZ:\t");
-  Serial.print(speedX);
-  Serial.print("\t");
-  Serial.print(speedY);
-  Serial.print("\t");
-  Serial.println(speedZ);
+  int sensitivity = 300;
+  if ( abs(aX) < sensitivity ) //High pass filter
+    aX = 0;
+  if ( abs(aY) < sensitivity )
+    aY = 0;
+  if (abs(aZ) < sensitivity )
+    aZ = 0;
+
+
+  accX = aX * 1.0 / 32768* 9.81;
+
+  accY = aY * 1.0 / 32768 * 9.81;
+
+  accZ = aZ * 1.0 / 32768 * 9.81;
+
+
+  speedX += accX * timeInterval / 2;
+
+  speedY += accY * timeInterval / 2;
+
+  speedZ += accZ * timeInterval / 2;
+
+  if (accX == 0)
+    speedX = 0;
+  if (accY == 0)
+    speedY = 0;
+  if (accZ == 0)
+    speedZ = 0;
   disX += speedX * timeInterval + 0.5 * accX * timeInterval * timeInterval;
   disY += speedY * timeInterval + 0.5 * accY * timeInterval * timeInterval;
   disZ += speedZ * timeInterval + 0.5 * accZ * timeInterval * timeInterval;
-  speedX += accX * timeInterval;
-  speedY += accY * timeInterval;
-  speedZ += accZ * timeInterval;
+
+
+  Serial.print("aX aY aZ:\t");
+  Serial.print(accX);
+  Serial.print(",");
+  Serial.print(accY);
+  Serial.print(",");
+  Serial.print(accZ);
+  Serial.println(",");
   Serial.print("coordinates:\t");
   Serial.print(disX);
-  Serial.print("\t");
+  Serial.print(",");
   Serial.print(disY);
-  Serial.print("\t");
-  Serial.println(disZ);
-  double offset = 0.00003 * ElapsedTime;
-  if (speedX > 0) {
-    if (accX == 0)
-      speedX -= offset * 100;
-    else
-      speedX -= offset;
-  } else {
-    if (accX == 0)
-      speedX += offset * 100;
-    else
-      speedX += offset;
-  }
-  
-  if (speedY > 0) {
-    if (accY == 0)
-      speedY -= offset * 100;
-    else
-      speedY -= offset;
-  } else {
-    if (accY == 0)
-      speedY += offset * 100;
-    else
-      speedY += offset;
-  }
-  
-    if (speedZ > 0) {
-    if (accZ == 0)
-      speedZ -= offset * 100;
-    else
-      speedZ -= offset;
-  } else {
-    if (accZ == 0)
-      speedZ += offset * 100;
-    else
-      speedZ += offset;
-  }
-}
+  Serial.print(",");
+  Serial.print(disZ);
+  Serial.println(",");
 
+
+
+}
+void getDist2(int aX, int aY, int aZ) {
+  timeInterval = ElapsedTime * 1.0 / 1000;
+  int sensitivity = 30;
+  if ( abs(aX) < sensitivity ) //High pass filter
+    aX = 0;
+  if ( abs(aY) < sensitivity )
+    aY = 0;
+  aZ += 80;
+  if (abs(aZ) < sensitivity )
+    aZ = 0;
+
+
+  //  if (abs(aX * 1.0 / 1000) < 16 && abs(aX - accX * 1000) < 3000) //Band pass filter
+  //    accX = aX * 1.0 / 1000 ;
+  //  if (abs(aY * 1.0 / 1000) < 16 && abs(aY - accY * 1000) < 3000)
+  //    accY = aY * 1.0 / 1000 ;
+  //  if (abs(aZ * 1.0 / 1000) < 16 && abs(aZ - accZ * 1000) < 3000)
+  //    accZ = aZ * 1.0 / 1000 ;
+  if (abs(aX * 1.0 / 1000) < 16 ) //Band pass filter
+    accX = aX * 1.0 / 1000 ;
+  if (abs(aY * 1.0 / 1000) < 16 )
+    accY = aY * 1.0 / 1000 ;
+  if (abs(aZ * 1.0 / 1000) < 16 )
+    accZ = aZ * 1.0 / 1000 ;
+  //  Serial.print("timeInterval:\t");
+  //  Serial.println(timeInterval);
+  //  Serial.print("aX aY aZ:\t");
+  //    Serial.print(accX);
+  //    Serial.print(",");
+  //    Serial.print(accY);
+  //    Serial.print(",");
+  //    Serial.print(accZ);
+  //    Serial.println(",");
+  //  Serial.print("sppedX speedY speedZ:\t");
+  //        Serial.print(speedX);
+  //        Serial.print(",");
+  //        Serial.print(speedY);
+  //        Serial.print(",");
+  //        Serial.print(speedZ);
+  //        Serial.print(",");
+
+  if (abs(speedX + accX * timeInterval / 2 ) < 2) //Bandpass filter
+    speedX += accX * timeInterval / 2;
+  if (abs(speedY + accY * timeInterval / 2) < 2)
+    speedY += accY * timeInterval / 2;
+  if (abs(speedZ + accZ * timeInterval / 2) < 2)
+    speedZ += accZ * timeInterval / 2;
+  if (abs(speedX) < 0.005) //High pass filter
+    speedX = 0;
+  if (abs(speedY) < 0.005)
+    speedY = 0;
+  if (abs(speedZ) < 0.005)
+    speedZ = 0;
+  if (accX == 0)
+    speedX = 0;
+  if (accY == 0)
+    speedY = 0;
+  if (accZ == 0)
+    speedZ = 0;
+  disX += speedX * timeInterval + 0.5 * accX * timeInterval * timeInterval;
+  disY += speedY * timeInterval + 0.5 * accY * timeInterval * timeInterval;
+  disZ += speedZ * timeInterval + 0.5 * accZ * timeInterval * timeInterval;
+
+  //Serial.print("coordinates:\t");
+  Serial.print(disX);
+  Serial.print(",");
+  Serial.print(disY);
+  Serial.print(",");
+  Serial.print(disZ);
+  Serial.println(",");
+
+
+
+}
