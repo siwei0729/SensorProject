@@ -1,4 +1,4 @@
-function calc()
+ function calc()
 %% Import data
 addpath('ximu_matlab_library');	% include x-IMU MATLAB library
 addpath('quaternion_library');	% include quatenrion library
@@ -6,7 +6,7 @@ addpath('quaternion_library');	% include quatenrion library
 % clear;                         	% clear all variables
 % clc;                          	% clear the command terminal
 
-xIMUdata = xIMUdataClass('LoggedData/LoggedData');
+% xIMUdata = xIMUdataClass('LoggedData/LoggedData');
 % gyr = [xIMUdata.CalInertialAndMagneticData.Gyroscope.X...
 %     xIMUdata.CalInertialAndMagneticData.Gyroscope.Y...
 %     xIMUdata.CalInertialAndMagneticData.Gyroscope.Z];        % gyroscope
@@ -23,25 +23,28 @@ global gyrZ;
 global disX;
 global disY;
 global disZ;
-% gyr = [gyr(1600:11000,1) gyr(1600:11000,2) gyr(1600:11000,3)];
-% acc = [acc(1600:11000,1) acc(1600:11000,2) acc(1600:11000,3)];
+
 gyr = [gyrX(:) gyrY(:) gyrZ(:)];        % gyroscope
 acc = [accX(:) accY(:) accZ(:)];	% accelerometer
+% gyr = arrSplit(gyr,1,1600);
+% acc = arrSplit(acc,1,1600);
+% gyr = [gyr(1600:11000,1) gyr(1600:11000,2) gyr(1600:11000,3)];
+% acc = [acc(1600:11000,1) acc(1600:11000,2) acc(1600:11000,3)];
 samplePeriod = 1/256; % 1/256
-
+FPS = 256;
 
 
 % Plot
 %figure('Number', 'off', 'Name', 'Gyroscope');
-figure();
-hold on;
-plot(gyr(:,1), 'r'); %gyr first col
-plot(gyr(:,2), 'g');
-plot(gyr(:,3), 'b');
-xlabel('sample');
-ylabel('dps');
-title('Gyroscope');
-legend('X', 'Y', 'Z');
+% figure();
+% hold on;
+% plot(gyr(:,1), 'r'); %gyr first col
+% plot(gyr(:,2), 'g');
+% plot(gyr(:,3), 'b');
+% xlabel('sample');
+% ylabel('dps');
+% title('Gyroscope');
+% legend('X', 'Y', 'Z');
 
 %figure('Number', 'off', 'Name', 'Accelerometer');
 figure()
@@ -111,7 +114,7 @@ legend('X', 'Y', 'Z');
 % [b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high');
 % linAccHP = filtfilt(b, a, linAcc);
 % figure()
-% 
+%
 % hold on;
 % plot(linAccHP(:,1), 'r');
 % plot(linAccHP(:,2), 'g');
@@ -120,26 +123,16 @@ legend('X', 'Y', 'Z');
 % ylabel('g');
 % title('Linear Acc High Passed');
 % legend('X', 'Y', 'Z');
-% 
+%
 % linAcc = linAccHP;
 %% Calculate linear velocity (integrate acceleartion)
 
 linVel = zeros(size(linAcc));
-
+% count =0;
 for i = 2:length(linAcc)
     linVel(i,:) = linVel(i-1,:) + linAcc(i,:) * samplePeriod;
-%     if abs(linAcc(i,1))<0.07  
-%         linVel(i,1)=linVel(i,1)/2;
-%     end
-%     if abs(linAcc(i,2))<0.07
-%         linVel(i,2)=linVel(i,2)/2;
-%     end
-%     if abs(linAcc(i,3))<0.07
-%         linVel(i,3)=linVel(i,3)/2;
-%     end
-%% Above commented work totally failed, creating a lot drifts
 end
-
+    %% Above commented work totally failed, creating a lot drifts
 % Plot
 %figure('Number', 'off', 'Name', 'Linear Velocity');
 figure()
@@ -151,13 +144,38 @@ xlabel('sample');
 ylabel('g');
 title('Linear velocity');
 legend('X', 'Y', 'Z');
+grid on
+spectrum(linVel(:,1),FPS,'X Spectrum')
+spectrum(linVel(:,2),FPS,'Y Spectrum')
+spectrum(linVel(:,3),FPS,'Z Spectrum')
+%pause()
 
 %% High-pass filter linear velocity to remove drift
-
+fre = getCutOffFre(linVel(:,1),FPS);
+disp('X cut off fre:')
+disp(fre)
 order = 1;
-filtCutOff = 0.1;
-[b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high');
-linVelHP = filtfilt(b, a, linVel);
+filtCutOff = fre; %cut off f at x hz
+[b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high'); % 1/5 of its f
+linVelHP(:,1) = filtfilt(b, a, linVel(:,1));
+
+fre = getCutOffFre(linVel(:,2),FPS);
+disp('Y cut off fre:')
+disp(fre)
+order = 1;
+filtCutOff = fre; %cut off f at x hz
+[b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high'); % 1/5 of its f
+linVelHP(:,2) = filtfilt(b, a, linVel(:,2));
+
+fre = getCutOffFre(linVel(:,3),FPS);
+disp('Z cut off fre:')
+disp(fre)
+order = 1;
+filtCutOff = fre; %cut off f at x hz
+[b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high'); % 1/5 of its f
+linVelHP(:,3) = filtfilt(b, a, linVel(:,3));
+
+%% linVelHP = filtfilt(b, a, linVel); original
 %linVelHP = linVel;
 % Plot
 %figure('Number', 'off', 'Name', 'High-pass filtered Linear Velocity');
@@ -170,6 +188,46 @@ xlabel('sample');
 ylabel('g');
 title('High-pass filtered linear velocity');
 legend('X', 'Y', 'Z');
+grid on
+
+for i = 1:20:length(linAcc)
+%     disp('--------------------- ')
+%     disp(i)
+    countX =0;
+%------------X-----------
+    for k = i:1:i+19
+        if k<length(linAcc) && abs(linAcc(k,1))<0.4 && abs(linAcc(k,2))<0.4 && abs(linAcc(k,3))<0.4
+            countX = countX +1;
+        end
+    end
+    if(countX>=15)
+        for k = i:2:i+19
+            linVelHP(k,1)=-0.001;
+            linVelHP(k+1,1)=0.001;
+            linVelHP(k,2)=-0.001;
+            linVelHP(k+1,2)=0.001;
+            linVelHP(k,3)=-0.001;
+            linVelHP(k+1,3)=0.001;
+        end
+    end
+    %disp('countX: '+countX)
+
+end
+
+figure()
+hold on;
+plot(linVelHP(:,1), 'r');
+plot(linVelHP(:,2), 'g');
+plot(linVelHP(:,3), 'b');
+xlabel('sample');
+ylabel('g');
+title('High-pass filtered linear velocity');
+legend('X', 'Y', 'Z');
+grid on
+
+spectrum(linVelHP(:,1),FPS,'X Spectrum')
+spectrum(linVelHP(:,2),FPS,'Y Spectrum')
+spectrum(linVelHP(:,3),FPS,'Z Spectrum')
 
 %% Calculate linear position (integrate velocity)
 
@@ -190,28 +248,34 @@ xlabel('sample');
 ylabel('g');
 title('Linear position');
 legend('X', 'Y', 'Z');
-
+spectrum(linPos(:,1),FPS,'X Pos Spectrum')
+spectrum(linPos(:,2),FPS,'Y Pos Spectrum')
+spectrum(linPos(:,3),FPS,'Z Pos Spectrum')
+linPosHP = linPos;
 %% High-pass filter linear position to remove drift
 
-order = 1;
-filtCutOff = 0.1;
-[b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high');
-linPosHP = filtfilt(b, a, linPos);
+% order = 1;
+% filtCutOff = 0.1;
+% [b, a] = butter(order, (2*filtCutOff)/(1/samplePeriod), 'high');
+% linPosHP = filtfilt(b, a, linPos);
+% spectrum(linPosHP(:,1),FPS,'X PosHP Spectrum')
+% spectrum(linPosHP(:,2),FPS,'Y PosHP Spectrum')
+% spectrum(linPosHP(:,3),FPS,'Z PosHP Spectrum')
 %linPosHP = linPos;
 % linPosHP(:,1) = fliplr(linPosHP(:,1));
 % linPosHP(:,2) = fliplr(linPosHP(:,2));
 % linPosHP(:,3) = fliplr(linPosHP(:,3));
 % Plot
 %figure('Number', 'off', 'Name', 'High-pass filtered Linear Position');
-figure()
-hold on;
-plot(linPosHP(:,1), 'r');
-plot(linPosHP(:,2), 'g');
-plot(linPosHP(:,3), 'b');
-xlabel('sample');
-ylabel('g');
-title('High-pass filtered linear position');
-legend('X', 'Y', 'Z');
+% figure()
+% hold on;
+% plot(linPosHP(:,1), 'r');
+% plot(linPosHP(:,2), 'g');
+% plot(linPosHP(:,3), 'b');
+% xlabel('sample');
+% ylabel('g');
+% title('High-pass filtered linear position');
+% legend('X', 'Y', 'Z');
 
 % cla
 % sumAll = sum(linPosHP(:,1));
@@ -240,9 +304,9 @@ legend('X', 'Y', 'Z');
 % end
 % veloVeri= zeros(size(linPosHP));
 % for i=2 : length(linPosHP)
-%     veloVeri(i,1) = (linPosHP(i,1)-linPosHP(i-1,1))*256; %(d2-d1)/t
-%     veloVeri(i,2) = (linPosHP(i,2)-linPosHP(i-1,2))*256;
-%     veloVeri(i,3) = (linPosHP(i,3)-linPosHP(i-1,3))*256;
+%     veloVeri(i,1) = (linPosHP(i,1)-linPosHP(i-1,1))*FPS; %(d2-d1)/t
+%     veloVeri(i,2) = (linPosHP(i,2)-linPosHP(i-1,2))*FPS;
+%     veloVeri(i,3) = (linPosHP(i,3)-linPosHP(i-1,3))*FPS;
 % end
 % figure()
 % hold on;
@@ -255,9 +319,9 @@ legend('X', 'Y', 'Z');
 % legend('X', 'Y', 'Z');
 % accVeri= zeros(size(linPosHP));
 % for i=3 : length(veloVeri)
-%     accVeri(i,1) = (veloVeri(i,1)-veloVeri(i-1,1))*256; %(v2-v1)/t
-%     accVeri(i,2) = (veloVeri(i,2)-veloVeri(i-1,2))*256;
-%     accVeri(i,3) = (veloVeri(i,3)-veloVeri(i-1,3))*256;
+%     accVeri(i,1) = (veloVeri(i,1)-veloVeri(i-1,1))*FPS; %(v2-v1)/t
+%     accVeri(i,2) = (veloVeri(i,2)-veloVeri(i-1,2))*FPS;
+%     accVeri(i,3) = (veloVeri(i,3)-veloVeri(i-1,3))*FPS;
 % end
 % figure()
 % hold on;
@@ -275,10 +339,10 @@ legend('X', 'Y', 'Z');
 %view(-30,20)
 %axis([-1 1 -1 1 -1 1]);
 
- linPosHP = [linPosHP(1:11000,1) linPosHP(1:11000,2) linPosHP(1:11000,3)];
+%linPosHP = [linPosHP(1:11000,1) linPosHP(1:11000,2) linPosHP(1:11000,3)];
 %% Play animation
-% 
-% SamplePlotFreq = 8; %8
+
+% SamplePlotFreq = 24; %8
 % 
 % SixDOFanimation(linPosHP, R, ...
 %     'SamplePlotFreq', SamplePlotFreq, 'Trail', 'Off', ...

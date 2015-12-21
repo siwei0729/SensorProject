@@ -34,7 +34,7 @@ global disZ;
 global count;
 global viewX;
 accX=[0];
-accY=[0];
+accY=[0]; 
 accZ=[0];
 gyrX=[0];
 gyrY=[0];
