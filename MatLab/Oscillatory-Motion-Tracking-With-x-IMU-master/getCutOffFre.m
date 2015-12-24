@@ -15,19 +15,47 @@ function fre = getCutOffFre(x,Fs)
    %disp(abs(X(5600:6000))/N)
    %disp(f)
    
-   interval = 10;
-   for i=int16(length(X)/2+1):interval:length(X)
+
+   order = 1;
+   [b, a] = butter(order, 0.1, 'low'); % 1/5 of its f
+   X = filtfilt(b, a, X);
+   
+   X = abs(X)/N*50;
+   figure;
+   plot(f,X);
+   xlabel('Frequency (in hertz)');
+   title('Spectrum after low pass');
+   axis([-5 5 0 10]);
+    
+   interval = 2;
+   lastTan = 0;
+   for i=int16(length(X)/2+1):1:length(X)
+       
        if i+interval < length(X)
-           VD = abs(X(i))/N - abs(X(i+interval-1))/N;
+           VD = X(i) - X(i+interval-1);
            HD = abs(f(i) - f(i+interval-1));
 %            disp(VD)
 %            disp(HD)
-           if VD*50/HD <=5 % times 50 is to convert to X and Y to same scale
+        if lastTan == 0
+            lastTan = VD/HD;
+        end
+        currentTan = VD/HD;
+        disp(currentTan)
+        if currentTan < 0
+             disp(i)
+             fre = f(i);
+             break;
+        end
+        
+        if abs(currentTan)<abs(lastTan) && currentTan>0 
+           if currentTan <=3 % times 50 is to convert to X and Y to same scale
                disp(i)
                fre = f(i);
                break;
            end
-       end
+        end
+        lastTan = currentTan;
+      end
    end
    
    

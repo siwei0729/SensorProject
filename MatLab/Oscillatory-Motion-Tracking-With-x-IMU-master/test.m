@@ -76,8 +76,8 @@ accZ=acc(:,3);
 calc
 pause;
 disp('stoped')
-fclose(s);
-delete(s);
+% fclose(s);
+% delete(s);
 
 % return;
 
