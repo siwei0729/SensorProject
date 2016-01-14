@@ -26,8 +26,8 @@ global disZ;
 
 gyr = [gyrX(:) gyrY(:) gyrZ(:)];        % gyroscope
 acc = [accX(:) accY(:) accZ(:)];	% accelerometer
-  gyr = arrSplit(gyr,2000,10000);
-  acc = arrSplit(acc,2000,10000);
+%   gyr = arrSplit(gyr,2000,10000);
+%   acc = arrSplit(acc,2000,10000);
 % gyr = [gyr(1600:11000,1) gyr(1600:11000,2) gyr(1600:11000,3)];
 % acc = [acc(1600:11000,1) acc(1600:11000,2) acc(1600:11000,3)];
 samplePeriod = 1/256; % 1/256
@@ -341,15 +341,15 @@ linPosHP = linPos;
 
 %linPosHP = [linPosHP(1:11000,1) linPosHP(1:11000,2) linPosHP(1:11000,3)];
 %% Play animation
-
-SamplePlotFreq = 24; %8
-
-SixDOFanimation(linPosHP, R, ...
-    'SamplePlotFreq', SamplePlotFreq, 'Trail', 'Off', ...
-    'Position', [9 39 1280 720], ...
-    'AxisLength', 0.1, 'ShowArrowHead', false, ...
-    'Xlabel', 'X (m)', 'Ylabel', 'Y (m)', 'Zlabel', 'Z (m)', 'ShowLegend', false, 'Title', 'Unfiltered',...
-    'CreateAVI', true, 'AVIfileNameEnum', false, 'AVIfps', ((1/samplePeriod) / SamplePlotFreq));
+% 
+% SamplePlotFreq = 24; %8
+% 
+% SixDOFanimation(linPosHP, R, ...
+%     'SamplePlotFreq', SamplePlotFreq, 'Trail', 'Off', ...
+%     'Position', [9 39 1280 720], ...
+%     'AxisLength', 0.1, 'ShowArrowHead', false, ...
+%     'Xlabel', 'X (m)', 'Ylabel', 'Y (m)', 'Zlabel', 'Z (m)', 'ShowLegend', false, 'Title', 'Unfiltered',...
+%     'CreateAVI', true, 'AVIfileNameEnum', false, 'AVIfps', ((1/samplePeriod) / SamplePlotFreq));
 
 %% End of script
 end
